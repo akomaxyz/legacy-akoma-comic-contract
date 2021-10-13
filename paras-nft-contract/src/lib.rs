@@ -174,9 +174,11 @@ impl Contract {
         token_metadata: TokenMetadata,
         price: Option<U128>,
         royalty: Option<HashMap<AccountId, u32>>,
+        creator_id: ValidAccountId
     ) -> TokenSeriesJson {
         let initial_storage_usage = env::storage_usage();
-        let creator_id = env::predecessor_account_id();
+
+        assert_eq!(env::predecessor_account_id(), self.tokens.owner_id, "Paras: Only owner");
 
         let token_series_id = format!("{}", (self.token_series_by_id.len() + 1));
 
@@ -1070,8 +1072,8 @@ mod tests {
 
     fn setup_contract() -> (VMContextBuilder, Contract) {
         let mut context = VMContextBuilder::new();
-        testing_env!(context.predecessor_account_id(accounts(0)).build());
-        let contract = Contract::new_default_meta(accounts(0), accounts(4));
+        testing_env!(context.predecessor_account_id(accounts(1)).build());
+        let contract = Contract::new_default_meta(accounts(1), accounts(4));
         (context, contract)
     }
 
@@ -1125,6 +1127,7 @@ mod tests {
             },
             price,
             Some(royalty.clone()),
+            accounts(1),
         );
     }
 
