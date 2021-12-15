@@ -216,7 +216,7 @@ fn simulate_buy() {
 
     let treasury_balance = treasury.account().unwrap().amount;
 
-    alice.call(
+    root.call(
         nft.account_id(),
         "nft_create_series",
         &json!({
@@ -230,10 +230,11 @@ fn simulate_buy() {
             "royalty": {
                 "0".repeat(64): 1000u32
             },
+            "creator_id": alice.account_id(),
         }).to_string().into_bytes(),
         DEFAULT_GAS,
         to_yocto("1")
-    );
+    ).assert_success();
 
     let alice_balance = alice.account().unwrap().amount;
 
@@ -246,7 +247,7 @@ fn simulate_buy() {
         }).to_string().into_bytes(),
         DEFAULT_GAS,
         to_yocto("1") + STORAGE_MINT_ESTIMATE
-    );
+    ).assert_success();
 
     let for_treasury = (to_yocto("1") * 500) / 10_000;
     let for_seller = to_yocto("1") - for_treasury;
