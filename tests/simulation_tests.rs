@@ -44,7 +44,7 @@ pub fn init() -> (UserAccount, ContractAccount<Contract>, UserAccount) {
 
 #[test]
 fn simulate_create_new_series() {
-    let (root, nft, _) = init();
+    let (root, nft, alice) = init();
 
     let initial_storage_usage = nft.account().unwrap().storage_usage;
 
@@ -62,6 +62,7 @@ fn simulate_create_new_series() {
             "royalty": {
                 "0".repeat(64): 1000u32
             },
+            "creator_id": alice.account_id(),
         }).to_string().into_bytes(),
         DEFAULT_GAS,
         to_yocto("2")
@@ -75,7 +76,7 @@ fn simulate_create_new_series() {
 
 #[test]
 fn simulate_mint() {
-    let (root, nft, _) = init();
+    let (root, nft, alice) = init();
 
     root.call(
         nft.account_id(),
@@ -91,6 +92,7 @@ fn simulate_mint() {
             "royalty": {
                 "0".repeat(64): 1000u32
             },
+            "creator_id": alice.account_id()
         }).to_string().into_bytes(),
         DEFAULT_GAS,
         to_yocto("1")
@@ -154,7 +156,7 @@ fn simulate_mint() {
 
 #[test]
 fn simulate_approve() {
-    let (root, nft, _) = init();
+    let (root, nft, alice) = init();
 
     let trst = root.create_user("trst".repeat(16), to_yocto("100"));
     root.call(
@@ -171,6 +173,7 @@ fn simulate_approve() {
             "royalty": {
                 "0".repeat(64): 1000u32
             },
+            "creator_id": alice.account_id(),
         }).to_string().into_bytes(),
         DEFAULT_GAS,
         to_yocto("1")
