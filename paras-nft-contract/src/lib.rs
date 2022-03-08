@@ -764,22 +764,6 @@ impl Contract {
                 "Must chose either token_series_ids or token_ids"
             );
             panic!("Token Ids not supported for now");
-            // let mut token_ids_internal: Vector<TokenSeriesId> = Vector::new(
-            //     StorageKey::MintBundleTokens { mint_bundle_id: mint_bundle_id.clone() }
-            // );
-            // for token_id in token_ids.unwrap() {
-            //     token_ids_internal.push(&token_id);
-            // }
-            // self.mint_bundles.insert(&mint_bundle_id.clone(), &MintBundle {
-            //     token_series_ids: None,
-            //     token_ids: Some(token_ids_internal),
-            //     price: match price {
-            //         Some(p) => Some(p.0),
-            //         None => None
-            //     },
-            //     limit_buy,
-            //     bought_account_ids: LookupMap::new(StorageKey::BoughtAccountId { mint_bundle_id }),
-            // });
         }
 
         refund_deposit(env::storage_usage() - initial_storage_usage, 0);
@@ -787,9 +771,17 @@ impl Contract {
         true
     }
 
+    #[payable]
+    pub fn delete_mint_bundle(
+        &mut self,
+        mint_bundle_id: MintBundleId
+    ) {
+        assert_one_yocto();
+        assert_eq!(env::predecessor_account_id(), self.tokens.owner_id, "Paras: Only owner");
+        self.mint_bundles.remove(&mint_bundle_id);
+    }
+
     // CUSTOM VIEWS
-
-
 
     pub fn nft_get_series_single(&self, token_series_id: TokenSeriesId) -> TokenSeriesJson {
         let token_series = self.token_series_by_id.get(&token_series_id).expect("Series does not exist");
