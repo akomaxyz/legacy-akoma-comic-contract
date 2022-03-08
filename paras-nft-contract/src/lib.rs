@@ -15,7 +15,7 @@ use near_sdk::{
 };
 use near_sdk::serde::{Deserialize, Serialize};
 use std::collections::{HashMap};
-use near_sdk::env::{is_valid_account_id, predecessor_account_id};
+use near_sdk::env::{is_valid_account_id};
 
 pub mod event;
 
@@ -110,7 +110,7 @@ pub struct MintBundle {
 pub struct MintBundleJson {
     token_series_ids: Option<Vec<TokenSeriesId>>,
     token_ids: Option<Vec<TokenId>>,
-    price: Balance,
+    price: U128,
     limit_buy: Option<u32>,
 }
 
@@ -668,19 +668,24 @@ impl Contract {
         receiver_id: ValidAccountId,
     ) -> Option<TokenId> {
         let initial_storage_usage = env::storage_usage();
-        let mut mint_bundle = self.mint_bundles.get(&mint_bundle_id).unwrap();
+        let mut mint_bundle = self.mint_bundles.get(&mint_bundle_id).expect(
+            "Paras: Mint bundle does not exist or already finished"
+        );
 
-        // price
+        assert_eq!(env::predecessor_account_id(), receiver_id.to_string(), "Paras: Can only buy for caller");
+
         let price = mint_bundle.price;
         assert!(
             env::attached_deposit() > price,
-            "Attached deposit lower than mint price"
+            "Paras: Attached deposit lower than mint price"
         );
 
         if let Some(limit_buy) = mint_bundle.limit_buy {
             let mint_count = mint_bundle.bought_account_ids.get(&receiver_id.to_string()).unwrap_or(0);
             assert!(
-                mint_count < limit_buy
+                mint_count < limit_buy,
+                "Paras: Mint exhausted for account_id {}",
+                receiver_id
             );
 
             mint_bundle.bought_account_ids.insert(
@@ -804,7 +809,7 @@ impl Contract {
                 Some(x) => Some(x.to_vec()),
                 None => None
             },
-            price: mint_bundle.price,
+            price: U128(mint_bundle.price),
             limit_buy: mint_bundle.limit_buy
         }
     }
@@ -1272,6 +1277,7 @@ mod tests {
     use near_sdk::test_utils::{accounts, VMContextBuilder};
     use near_sdk::MockedBlockchain;
     use near_sdk::{testing_env};
+    use serde_with::with_prefix;
 
     const STORAGE_FOR_CREATE_SERIES: Balance = 8540000000000000000000;
     const STORAGE_FOR_MINT: Balance = 11280000000000000000000;
@@ -1776,5 +1782,163 @@ mod tests {
             token.owner_id,
             accounts(3).to_string()
         )
+    }
+
+    #[test]
+    fn test_create_mint_bundle() {
+        let (mut context, mut contract) = setup_contract();
+        testing_env!(context
+            .predecessor_account_id(accounts(1))
+            .attached_deposit(STORAGE_FOR_CREATE_SERIES)
+            .build()
+        );
+
+        contract.create_mint_bundle(
+            "test-bundle-test".to_string(),
+            Some(vec!["1".to_string(), "2".to_string()]),
+            None,
+            U128::from(5 * 10u128.pow(24)),
+            None
+        );
+
+        let mint_bundle = contract.get_mint_bundle("test-bundle-test".to_string());
+
+        assert_eq!(mint_bundle.token_series_ids, Some(vec!["1".to_string(), "2".to_string()]));
+        assert_eq!(mint_bundle.token_ids, None);
+        assert_eq!(mint_bundle.price, U128::from(5 * 10u128.pow(24)));
+        assert_eq!(mint_bundle.limit_buy, None);
+    }
+
+    #[test]
+    fn test_buy_mint_bundle() {
+        let (mut context, mut contract) = setup_contract();
+        testing_env!(context
+            .predecessor_account_id(accounts(1))
+            .attached_deposit(STORAGE_FOR_CREATE_SERIES)
+            .build()
+        );
+
+        let mut royalty: HashMap<AccountId, u32> = HashMap::new();
+        royalty.insert(accounts(1).to_string(), 1000);
+
+        create_series(&mut contract, &royalty, None, Some(2));
+        create_series(&mut contract, &royalty, None, Some(2));
+        create_series(&mut contract, &royalty, None, Some(2));
+        create_series(&mut contract, &royalty, None, Some(2));
+
+        testing_env!(context
+            .predecessor_account_id(accounts(1))
+            .attached_deposit(STORAGE_FOR_CREATE_SERIES)
+            .build()
+        );
+
+        let price = 5 * 10u128.pow(24);
+        let mint_bundle_id = "test-bundle-test".to_string();
+        contract.create_mint_bundle(
+            mint_bundle_id.clone(),
+            Some(vec!["1".to_string(), "2".to_string(), "3".to_string(), "4".to_string()]),
+            None,
+            U128::from(price),
+            None
+        );
+
+        testing_env!(context
+            .predecessor_account_id(accounts(2))
+            .attached_deposit(price + STORAGE_FOR_CREATE_SERIES)
+            .build()
+        );
+
+        contract.buy_mint_bundle(mint_bundle_id.clone(), accounts(2));
+        contract.buy_mint_bundle(mint_bundle_id.clone(), accounts(2));
+        contract.buy_mint_bundle(mint_bundle_id.clone(), accounts(2));
+        contract.buy_mint_bundle(mint_bundle_id.clone(), accounts(2));
+        contract.buy_mint_bundle(mint_bundle_id.clone(), accounts(2));
+        contract.buy_mint_bundle(mint_bundle_id.clone(), accounts(2));
+        contract.buy_mint_bundle(mint_bundle_id.clone(), accounts(2));
+        contract.buy_mint_bundle(mint_bundle_id, accounts(2));
+    }
+
+    #[test]
+    #[should_panic(expected = "Paras: Mint bundle does not exist or already finished")]
+    fn test_invalid_exhaust_mint_bundle() {
+        let (mut context, mut contract) = setup_contract();
+        testing_env!(context
+            .predecessor_account_id(accounts(1))
+            .attached_deposit(STORAGE_FOR_CREATE_SERIES)
+            .build()
+        );
+
+        let mut royalty: HashMap<AccountId, u32> = HashMap::new();
+        royalty.insert(accounts(1).to_string(), 1000);
+
+        create_series(&mut contract, &royalty, None, Some(2));
+
+        testing_env!(context
+            .predecessor_account_id(accounts(1))
+            .attached_deposit(STORAGE_FOR_CREATE_SERIES)
+            .build()
+        );
+
+        let price = 5 * 10u128.pow(24);
+        let mint_bundle_id = "test-bundle-test".to_string();
+        contract.create_mint_bundle(
+            mint_bundle_id.clone(),
+            Some(vec!["1".to_string()]),
+            None,
+            U128::from(price),
+            None
+        );
+
+        testing_env!(context
+            .predecessor_account_id(accounts(2))
+            .attached_deposit(price + STORAGE_FOR_CREATE_SERIES)
+            .build()
+        );
+
+        contract.buy_mint_bundle(mint_bundle_id.clone(), accounts(2));
+        contract.buy_mint_bundle(mint_bundle_id.clone(), accounts(2));
+        contract.buy_mint_bundle(mint_bundle_id, accounts(2));
+    }
+
+    #[test]
+    #[should_panic(expected = "Paras: Mint exhausted for account_id charlie")]
+    fn test_invalid_exhaust_limit_buy_mint_bundle() {
+        let (mut context, mut contract) = setup_contract();
+        testing_env!(context
+            .predecessor_account_id(accounts(1))
+            .attached_deposit(STORAGE_FOR_CREATE_SERIES)
+            .build()
+        );
+
+        let mut royalty: HashMap<AccountId, u32> = HashMap::new();
+        royalty.insert(accounts(1).to_string(), 1000);
+
+        create_series(&mut contract, &royalty, None, Some(2));
+
+        testing_env!(context
+            .predecessor_account_id(accounts(1))
+            .attached_deposit(STORAGE_FOR_CREATE_SERIES)
+            .build()
+        );
+
+        let price = 5 * 10u128.pow(24);
+        let mint_bundle_id = "test-bundle-test".to_string();
+        contract.create_mint_bundle(
+            mint_bundle_id.clone(),
+            Some(vec!["1".to_string()]),
+            None,
+            U128::from(price),
+            Some(1)
+        );
+
+        testing_env!(context
+            .predecessor_account_id(accounts(2))
+            .attached_deposit(price + STORAGE_FOR_CREATE_SERIES)
+            .build()
+        );
+
+        contract.buy_mint_bundle(mint_bundle_id.clone(), accounts(2));
+        contract.buy_mint_bundle(mint_bundle_id.clone(), accounts(2));
+        contract.buy_mint_bundle(mint_bundle_id, accounts(2));
     }
 }
