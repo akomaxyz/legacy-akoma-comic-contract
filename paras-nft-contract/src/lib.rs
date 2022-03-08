@@ -106,9 +106,16 @@ pub struct MintBundle {
     bought_account_ids: LookupMap<AccountId, u32>,
 }
 
+#[derive(Serialize, Deserialize)]
+pub struct MintBundleJson {
+    token_series_ids: Option<Vec<TokenSeriesId>>,
+    token_ids: Option<Vec<TokenId>>,
+    price: Balance,
+    limit_buy: Option<u32>,
+}
+
 near_sdk::setup_alloc!();
 
-#[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
 pub struct ContractV1 {
     tokens: NonFungibleToken,
@@ -782,6 +789,25 @@ impl Contract {
     }
 
     // CUSTOM VIEWS
+
+    pub fn get_mint_bundle(
+        &self,
+        mint_bundle_id: MintBundleId
+    ) -> MintBundleJson {
+        let mint_bundle = self.mint_bundles.get(&mint_bundle_id).unwrap();
+        MintBundleJson {
+            token_series_ids: match mint_bundle.token_series_ids {
+                Some(x) => Some(x.to_vec()),
+                None => None
+            },
+            token_ids: match mint_bundle.token_ids {
+                Some(x) => Some(x.to_vec()),
+                None => None
+            },
+            price: mint_bundle.price,
+            limit_buy: mint_bundle.limit_buy
+        }
+    }
 
     pub fn nft_get_series_single(&self, token_series_id: TokenSeriesId) -> TokenSeriesJson {
         let token_series = self.token_series_by_id.get(&token_series_id).expect("Series does not exist");
