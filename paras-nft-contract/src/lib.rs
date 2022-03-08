@@ -110,6 +110,16 @@ near_sdk::setup_alloc!();
 
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
+pub struct ContractV1 {
+    tokens: NonFungibleToken,
+    metadata: LazyOption<NFTContractMetadata>,
+    // CUSTOM
+    token_series_by_id: UnorderedMap<TokenSeriesId, TokenSeries>,
+    treasury_id: AccountId,
+}
+
+#[near_bindgen]
+#[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
 pub struct Contract {
     tokens: NonFungibleToken,
     metadata: LazyOption<NFTContractMetadata>,
@@ -177,6 +187,26 @@ impl Contract {
             treasury_id: treasury_id.to_string(),
             mint_bundles: UnorderedMap::new(StorageKey::MintBundles),
         }
+    }
+
+    #[init(ignore_state)]
+    pub fn migrate() -> Self {
+        let prev: ContractV1 = env::state_read().expect("ERR_NOT_INITIALIZED");
+        assert_eq!(
+            env::predecessor_account_id(),
+            prev.tokens.owner_id,
+            "Paras: Only owner"
+        );
+
+        let this = Contract {
+            tokens: prev.tokens,
+            metadata: prev.metadata,
+            token_series_by_id: prev.token_series_by_id,
+            treasury_id: prev.treasury_id,
+            mint_bundles: UnorderedMap::new(StorageKey::MintBundles),
+        };
+
+        this
     }
 
     // Treasury
