@@ -101,7 +101,7 @@ pub struct TokenSeriesJson {
 pub struct MintBundle {
     token_series_ids: Option<Vector<TokenSeriesId>>,
     token_ids: Option<Vector<TokenId>>,
-    price: Balance,
+    price: Option<Balance>,
     limit_buy: Option<u32>,
     bought_account_ids: LookupMap<AccountId, u32>,
 }
@@ -110,7 +110,7 @@ pub struct MintBundle {
 pub struct MintBundleJson {
     token_series_ids: Option<Vec<TokenSeriesId>>,
     token_ids: Option<Vec<TokenId>>,
-    price: U128,
+    price: Option<U128>,
     limit_buy: Option<u32>,
 }
 
@@ -674,7 +674,7 @@ impl Contract {
 
         assert_eq!(env::predecessor_account_id(), receiver_id.to_string(), "Paras: Can only buy for caller");
 
-        let price = mint_bundle.price;
+        let price = mint_bundle.price.expect("Paras: Mint bundle hasn't started yet");
         assert!(
             env::attached_deposit() > price,
             "Paras: Attached deposit lower than mint price"
@@ -739,7 +739,7 @@ impl Contract {
         mint_bundle_id: MintBundleId,
         token_series_ids: Option<Vec<TokenSeriesId>>,
         token_ids: Option<Vec<TokenId>>,
-        price: U128,
+        price: Option<U128>,
         limit_buy: Option<u32>,
     ) -> bool {
         let initial_storage_usage = env::storage_usage();
@@ -766,7 +766,10 @@ impl Contract {
             self.mint_bundles.insert(&mint_bundle_id.clone(), &MintBundle {
                 token_series_ids: Some(token_series_ids_internal),
                 token_ids: None,
-                price: price.0,
+                price: match price {
+                    Some(x) => Some(x.0),
+                    None => None
+                },
                 limit_buy,
                 bought_account_ids: LookupMap::new(StorageKey::BoughtAccountId { mint_bundle_id }),
             });
@@ -793,6 +796,20 @@ impl Contract {
         self.mint_bundles.remove(&mint_bundle_id);
     }
 
+    #[payable]
+    pub fn set_price_mint_bundle(
+        &mut self,
+        mint_bundle_id: MintBundleId,
+        price: U128
+    ) {
+        assert_one_yocto();
+        assert_eq!(env::predecessor_account_id(), self.tokens.owner_id, "Paras: Only owner");
+        let mut mint_bundle = self.mint_bundles.get(&mint_bundle_id).unwrap();
+        mint_bundle.price = Some(price.0);
+        self.mint_bundles.insert(&mint_bundle_id, &mint_bundle);
+    }
+
+
     // CUSTOM VIEWS
 
     pub fn get_mint_bundle(
@@ -809,7 +826,10 @@ impl Contract {
                 Some(x) => Some(x.to_vec()),
                 None => None
             },
-            price: U128(mint_bundle.price),
+            price: match mint_bundle.price {
+                Some(x) => Some(U128(x)),
+                None => None
+            },
             limit_buy: mint_bundle.limit_buy
         }
     }
@@ -1797,7 +1817,7 @@ mod tests {
             "test-bundle-test".to_string(),
             Some(vec!["1".to_string(), "2".to_string()]),
             None,
-            U128::from(5 * 10u128.pow(24)),
+            Some(U128::from(5 * 10u128.pow(24))),
             None
         );
 
@@ -1805,7 +1825,7 @@ mod tests {
 
         assert_eq!(mint_bundle.token_series_ids, Some(vec!["1".to_string(), "2".to_string()]));
         assert_eq!(mint_bundle.token_ids, None);
-        assert_eq!(mint_bundle.price, U128::from(5 * 10u128.pow(24)));
+        assert_eq!(mint_bundle.price.unwrap(), U128::from(5 * 10u128.pow(24)));
         assert_eq!(mint_bundle.limit_buy, None);
     }
 
@@ -1838,7 +1858,7 @@ mod tests {
             mint_bundle_id.clone(),
             Some(vec!["1".to_string(), "2".to_string(), "3".to_string(), "4".to_string()]),
             None,
-            U128::from(price),
+            Some(U128::from(price)),
             None
         );
 
@@ -1885,7 +1905,7 @@ mod tests {
             mint_bundle_id.clone(),
             Some(vec!["1".to_string()]),
             None,
-            U128::from(price),
+            Some(U128::from(price)),
             None
         );
 
@@ -1927,7 +1947,7 @@ mod tests {
             mint_bundle_id.clone(),
             Some(vec!["1".to_string()]),
             None,
-            U128::from(price),
+            Some(U128::from(price)),
             Some(1)
         );
 
