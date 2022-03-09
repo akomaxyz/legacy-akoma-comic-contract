@@ -814,7 +814,7 @@ impl Contract {
 
     pub fn get_buy_count_mint_bundle(
         &self,
-        mint_bundle_id: MintBundleId
+        mint_bundle_id: MintBundleId,
         account_id: ValidAccountId
     ) -> u32 {
         let mint_bundle = self.mint_bundles.get(&mint_bundle_id).unwrap();
