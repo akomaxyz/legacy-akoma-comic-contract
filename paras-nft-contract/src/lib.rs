@@ -812,6 +812,15 @@ impl Contract {
 
     // CUSTOM VIEWS
 
+    pub fn get_buy_count_mint_bundle(
+        &self,
+        mint_bundle_id: MintBundleId
+        account_id: ValidAccountId
+    ) -> u32 {
+        let mint_bundle = self.mint_bundles.get(&mint_bundle_id).unwrap();
+        mint_bundle.bought_account_ids.get(&account_id.to_string()).unwrap_or(0)
+    }
+
     pub fn get_mint_bundle(
         &self,
         mint_bundle_id: MintBundleId
