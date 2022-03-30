@@ -7,18 +7,17 @@ use near_contract_standards::non_fungible_token::metadata::{
 use near_contract_standards::non_fungible_token::NonFungibleToken;
 use near_contract_standards::non_fungible_token::{Token, TokenId};
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::collections::{LazyOption, LookupMap, UnorderedMap, UnorderedSet, Vector};
+use near_sdk::collections::{LazyOption, UnorderedMap, UnorderedSet};
 use near_sdk::json_types::{ValidAccountId, U128, U64};
 use near_sdk::{
     assert_one_yocto, env, near_bindgen, serde_json::json, AccountId, Balance, BorshStorageKey,
-    PanicOnDefault, Promise, PromiseOrValue, Gas, ext_contract,
+    PanicOnDefault, Promise, PromiseOrValue, Gas, ext_contract
 };
 use near_sdk::serde::{Deserialize, Serialize};
-use std::collections::{HashMap};
-use near_sdk::env::{is_valid_account_id};
+use std::collections::HashMap;
+use near_sdk::env::is_valid_account_id;
 
 pub mod event;
-
 pub use event::NearEvent;
 
 /// between token_series_id and edition number e.g. 42:2 where 42 is series and 2 is edition
@@ -36,7 +35,6 @@ const GAS_FOR_MINT: Gas = 90_000_000_000_000;
 const NO_DEPOSIT: Balance = 0;
 
 pub type TokenSeriesId = String;
-pub type MintBundleId = String;
 
 #[derive(Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
@@ -85,7 +83,7 @@ pub struct TokenSeries {
     tokens: UnorderedSet<TokenId>,
     price: Option<Balance>,
     is_mintable: bool,
-    royalty: HashMap<AccountId, u32>,
+    royalty: HashMap<AccountId, u32>
 }
 
 #[derive(Serialize, Deserialize)]
@@ -94,36 +92,10 @@ pub struct TokenSeriesJson {
     token_series_id: TokenSeriesId,
     metadata: TokenMetadata,
     creator_id: AccountId,
-    royalty: HashMap<AccountId, u32>,
-}
-
-#[derive(BorshSerialize, BorshDeserialize)]
-pub struct MintBundle {
-    token_series_ids: Option<Vector<TokenSeriesId>>,
-    token_ids: Option<Vector<TokenId>>,
-    price: Option<Balance>,
-    limit_buy: Option<u32>,
-    bought_account_ids: LookupMap<AccountId, u32>,
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct MintBundleJson {
-    token_series_ids: Option<Vec<TokenSeriesId>>,
-    token_ids: Option<Vec<TokenId>>,
-    price: Option<U128>,
-    limit_buy: Option<u32>,
+    royalty: HashMap<AccountId, u32>
 }
 
 near_sdk::setup_alloc!();
-
-#[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
-pub struct ContractV1 {
-    tokens: NonFungibleToken,
-    metadata: LazyOption<NFTContractMetadata>,
-    // CUSTOM
-    token_series_by_id: UnorderedMap<TokenSeriesId, TokenSeries>,
-    treasury_id: AccountId,
-}
 
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
@@ -133,7 +105,6 @@ pub struct Contract {
     // CUSTOM
     token_series_by_id: UnorderedMap<TokenSeriesId, TokenSeries>,
     treasury_id: AccountId,
-    mint_bundles: UnorderedMap<MintBundleId, MintBundle>,
 }
 
 const DATA_IMAGE_SVG_COMIC_ICON: &str = "data:image/svg+xml,%3Csvg width='80' height='80' viewBox='0 0 80 80' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M10 79C5.02944 79 1 74.9706 1 70V10C1 5.02944 5.02944 1 10 1H71C75.4183 1 79 4.58172 79 9V70C79 74.9706 74.9706 79 70 79H10Z' fill='%2318162B' stroke='%23C6FF00' stroke-width='2'/%3E%3Cpath d='M71 0L77 3L80 9H71V0Z' fill='%23C6FF00'/%3E%3Cpath d='M9 80L3.5 76.5L0 71H9V80Z' fill='%23C6FF00'/%3E%3Cpath d='M40.7745 64C35.0045 64 30.433 62.3846 27.0598 59.1538C23.6866 55.8782 22 51.2115 22 45.1538V33.8462C22 27.7885 23.6866 23.1442 27.0598 19.9135C30.433 16.6378 35.0045 15 40.7745 15C46.5 15 50.9162 16.5929 54.0231 19.7788C57.1744 22.9199 58.75 27.25 58.75 32.7692V33.1731H50.0951V32.5C50.0951 29.7179 49.3184 27.4295 47.7649 25.6346C46.2559 23.8397 43.9257 22.9423 40.7745 22.9423C37.6676 22.9423 35.2264 23.9071 33.4511 25.8365C31.6757 27.766 30.788 30.391 30.788 33.7115V45.2885C30.788 48.5641 31.6757 51.1891 33.4511 53.1635C35.2264 55.0929 37.6676 56.0577 40.7745 56.0577C43.9257 56.0577 46.2559 55.1603 47.7649 53.3654C49.3184 51.5256 50.0951 49.2372 50.0951 46.5V45.2885H58.75V46.2308C58.75 51.75 57.1744 56.1026 54.0231 59.2885C50.9162 62.4295 46.5 64 40.7745 64Z' fill='%23C6FF00'/%3E%3C/svg%3E";
@@ -149,9 +120,6 @@ enum StorageKey {
     TokenSeriesById,
     TokensBySeriesInner { token_series: String },
     TokensPerOwner { account_hash: Vec<u8> },
-    MintBundles,
-    BoughtAccountId { mint_bundle_id: MintBundleId },
-    MintBundleTokens { mint_bundle_id: MintBundleId },
 }
 
 #[near_bindgen]
@@ -177,7 +145,7 @@ impl Contract {
     pub fn new(
         owner_id: ValidAccountId,
         treasury_id: ValidAccountId,
-        metadata: NFTContractMetadata,
+        metadata: NFTContractMetadata
     ) -> Self {
         assert!(!env::state_exists(), "Already initialized");
         metadata.assert_valid();
@@ -192,28 +160,7 @@ impl Contract {
             token_series_by_id: UnorderedMap::new(StorageKey::TokenSeriesById),
             metadata: LazyOption::new(StorageKey::Metadata, Some(&metadata)),
             treasury_id: treasury_id.to_string(),
-            mint_bundles: UnorderedMap::new(StorageKey::MintBundles),
         }
-    }
-
-    #[init(ignore_state)]
-    pub fn migrate() -> Self {
-        let prev: ContractV1 = env::state_read().expect("ERR_NOT_INITIALIZED");
-        assert_eq!(
-            env::predecessor_account_id(),
-            prev.tokens.owner_id,
-            "Paras: Only owner"
-        );
-
-        let this = Contract {
-            tokens: prev.tokens,
-            metadata: prev.metadata,
-            token_series_by_id: prev.token_series_by_id,
-            treasury_id: prev.treasury_id,
-            mint_bundles: UnorderedMap::new(StorageKey::MintBundles),
-        };
-
-        this
     }
 
     // Treasury
@@ -256,7 +203,7 @@ impl Contract {
         let mut total_perpetual = 0;
         let mut total_accounts = 0;
         let royalty_res: HashMap<AccountId, u32> = if let Some(royalty) = royalty {
-            for (k, v) in royalty.iter() {
+            for (k , v) in royalty.iter() {
                 if !is_valid_account_id(k.as_bytes()) {
                     env::panic("Not valid account_id for royalty".as_bytes());
                 };
@@ -281,7 +228,7 @@ impl Contract {
             None
         };
 
-        self.token_series_by_id.insert(&token_series_id, &TokenSeries {
+        self.token_series_by_id.insert(&token_series_id, &TokenSeries{
             metadata: token_metadata.clone(),
             creator_id: creator_id.to_string(),
             tokens: UnorderedSet::new(
@@ -313,7 +260,7 @@ impl Contract {
 
         refund_deposit(env::storage_usage() - initial_storage_usage, 0);
 
-        TokenSeriesJson {
+        TokenSeriesJson{
             token_series_id,
             metadata: token_metadata,
             creator_id: creator_id.into(),
@@ -325,7 +272,7 @@ impl Contract {
     pub fn nft_buy(
         &mut self,
         token_series_id: TokenSeriesId,
-        receiver_id: ValidAccountId,
+        receiver_id: ValidAccountId
     ) -> TokenId {
         let initial_storage_usage = env::storage_usage();
 
@@ -349,7 +296,7 @@ impl Contract {
         NearEvent::log_nft_mint(
             receiver_id.to_string(),
             vec![token_id.clone()],
-            Some(json!({"price": price.to_string()}).to_string()),
+            Some(json!({"price": price.to_string()}).to_string())
         );
 
         token_id
@@ -359,7 +306,7 @@ impl Contract {
     pub fn nft_mint(
         &mut self,
         token_series_id: TokenSeriesId,
-        receiver_id: ValidAccountId,
+        receiver_id: ValidAccountId
     ) -> TokenId {
         let initial_storage_usage = env::storage_usage();
 
@@ -435,7 +382,7 @@ impl Contract {
     fn _nft_mint_series(
         &mut self,
         token_series_id: TokenSeriesId,
-        receiver_id: AccountId,
+        receiver_id: AccountId
     ) -> TokenId {
         let mut token_series = self.token_series_by_id.get(&token_series_id).expect("Paras: Token series not exist");
         assert!(
@@ -538,7 +485,7 @@ impl Contract {
     pub fn nft_decrease_series_copies(
         &mut self,
         token_series_id: TokenSeriesId,
-        decrease_copies: U64,
+        decrease_copies: U64
     ) -> U64 {
         assert_one_yocto();
 
@@ -659,193 +606,11 @@ impl Contract {
         );
     }
 
-    // Mint Bundles
-
-    #[payable]
-    pub fn buy_mint_bundle(
-        &mut self,
-        mint_bundle_id: MintBundleId,
-        receiver_id: ValidAccountId,
-    ) -> Option<TokenId> {
-        let initial_storage_usage = env::storage_usage();
-        let mut mint_bundle = self.mint_bundles.get(&mint_bundle_id).expect(
-            "Paras: Mint bundle does not exist or already finished"
-        );
-
-        assert_eq!(env::predecessor_account_id(), receiver_id.to_string(), "Paras: Can only buy for caller");
-
-        let price = mint_bundle.price.expect("Paras: Mint bundle hasn't started yet");
-        assert!(
-            env::attached_deposit() > price,
-            "Paras: Attached deposit lower than mint price"
-        );
-
-        if let Some(limit_buy) = mint_bundle.limit_buy {
-            let mint_count = mint_bundle.bought_account_ids.get(&receiver_id.to_string()).unwrap_or(0);
-            assert!(
-                mint_count < limit_buy,
-                "Paras: Mint exhausted for account_id {}",
-                receiver_id
-            );
-
-            mint_bundle.bought_account_ids.insert(
-                &receiver_id.to_string(),
-                &(mint_count + 1)
-            );
-        }
-
-        return if let Some(mut token_series_ids) = mint_bundle.token_series_ids {
-            let seed_num = get_random_number(0) as u64;
-            let index = seed_num % token_series_ids.len();
-            let token_series_id = token_series_ids.get(index).unwrap();
-            let token_id = self._nft_mint_series(token_series_id.clone(), receiver_id.to_string());
-
-            let token_series = self.token_series_by_id.get(&token_series_id.to_string()).unwrap();
-            if !token_series.is_mintable {
-                token_series_ids.swap_remove(index);
-            }
-
-            if token_series_ids.len() == 0 {
-                self.mint_bundles.remove(&mint_bundle_id);
-            } else {
-                mint_bundle.token_series_ids = Some(token_series_ids);
-                self.mint_bundles.insert(&mint_bundle_id, &mint_bundle);
-            }
-
-            if price > 0 {
-                let for_treasury = price as u128 * TREASURY_FEE / 10_000u128;
-                let price_deducted = price - for_treasury;
-                Promise::new(token_series.creator_id).transfer(price_deducted);
-                Promise::new(self.treasury_id.clone()).transfer(for_treasury);
-            }
-
-            refund_deposit(env::storage_usage() - initial_storage_usage, price);
-
-            NearEvent::log_nft_mint(
-                receiver_id.to_string(),
-                vec![token_id.clone()],
-                Some(json!({"price": price.to_string()}).to_string()),
-            );
-
-            Some(token_id)
-        } else {
-            None
-        }
-    }
-
-    #[payable]
-    pub fn create_mint_bundle(
-        &mut self,
-        mint_bundle_id: MintBundleId,
-        token_series_ids: Option<Vec<TokenSeriesId>>,
-        token_ids: Option<Vec<TokenId>>,
-        price: Option<U128>,
-        limit_buy: Option<u32>,
-    ) -> bool {
-        let initial_storage_usage = env::storage_usage();
-
-        assert_eq!(env::predecessor_account_id(), self.tokens.owner_id, "Paras: Only owner");
-
-        let mint_bundle = self.mint_bundles.get(&mint_bundle_id);
-
-        if mint_bundle.is_some() {
-            panic!("Mint bundle already exists");
-        }
-
-        if token_series_ids.is_some() {
-            assert!(
-                token_ids.is_none(),
-                "Must chose either token_series_ids or token_ids"
-            );
-            let mut token_series_ids_internal: Vector<TokenSeriesId> = Vector::new(
-                StorageKey::MintBundleTokens { mint_bundle_id: mint_bundle_id.clone() }
-            );
-            for token_series_id in token_series_ids.unwrap() {
-                token_series_ids_internal.push(&token_series_id);
-            }
-            self.mint_bundles.insert(&mint_bundle_id.clone(), &MintBundle {
-                token_series_ids: Some(token_series_ids_internal),
-                token_ids: None,
-                price: match price {
-                    Some(x) => Some(x.0),
-                    None => None
-                },
-                limit_buy,
-                bought_account_ids: LookupMap::new(StorageKey::BoughtAccountId { mint_bundle_id }),
-            });
-        } else if token_ids.is_some() {
-            assert!(
-                token_series_ids.is_none(),
-                "Must chose either token_series_ids or token_ids"
-            );
-            panic!("Token Ids not supported for now");
-        }
-
-        refund_deposit(env::storage_usage() - initial_storage_usage, 0);
-
-        true
-    }
-
-    #[payable]
-    pub fn delete_mint_bundle(
-        &mut self,
-        mint_bundle_id: MintBundleId
-    ) {
-        assert_one_yocto();
-        assert_eq!(env::predecessor_account_id(), self.tokens.owner_id, "Paras: Only owner");
-        self.mint_bundles.remove(&mint_bundle_id);
-    }
-
-    #[payable]
-    pub fn set_price_mint_bundle(
-        &mut self,
-        mint_bundle_id: MintBundleId,
-        price: U128
-    ) {
-        assert_one_yocto();
-        assert_eq!(env::predecessor_account_id(), self.tokens.owner_id, "Paras: Only owner");
-        let mut mint_bundle = self.mint_bundles.get(&mint_bundle_id).unwrap();
-        mint_bundle.price = Some(price.0);
-        self.mint_bundles.insert(&mint_bundle_id, &mint_bundle);
-    }
-
-
     // CUSTOM VIEWS
-
-    pub fn get_buy_count_mint_bundle(
-        &self,
-        mint_bundle_id: MintBundleId,
-        account_id: ValidAccountId
-    ) -> u32 {
-        let mint_bundle = self.mint_bundles.get(&mint_bundle_id).unwrap();
-        mint_bundle.bought_account_ids.get(&account_id.to_string()).unwrap_or(0)
-    }
-
-    pub fn get_mint_bundle(
-        &self,
-        mint_bundle_id: MintBundleId
-    ) -> MintBundleJson {
-        let mint_bundle = self.mint_bundles.get(&mint_bundle_id).unwrap();
-        MintBundleJson {
-            token_series_ids: match mint_bundle.token_series_ids {
-                Some(x) => Some(x.to_vec()),
-                None => None
-            },
-            token_ids: match mint_bundle.token_ids {
-                Some(x) => Some(x.to_vec()),
-                None => None
-            },
-            price: match mint_bundle.price {
-                Some(x) => Some(U128(x)),
-                None => None
-            },
-            limit_buy: mint_bundle.limit_buy
-        }
-    }
 
     pub fn nft_get_series_single(&self, token_series_id: TokenSeriesId) -> TokenSeriesJson {
         let token_series = self.token_series_by_id.get(&token_series_id).expect("Series does not exist");
-        TokenSeriesJson {
+        TokenSeriesJson{
             token_series_id,
             metadata: token_series.metadata,
             creator_id: token_series.creator_id,
@@ -882,7 +647,7 @@ impl Contract {
             .iter()
             .skip(start_index as usize)
             .take(limit)
-            .map(|(token_series_id, token_series)| TokenSeriesJson {
+            .map(|(token_series_id, token_series)| TokenSeriesJson{
                 token_series_id,
                 metadata: token_series.metadata,
                 creator_id: token_series.creator_id,
@@ -965,7 +730,7 @@ impl Contract {
         let receiver_id_str = receiver_id.to_string();
         let (previous_owner_id, _) = self.tokens.internal_transfer(&sender_id, &receiver_id_str, &token_id, approval_id, memo.clone());
 
-        let authorized_id: Option<AccountId> = if sender_id != previous_owner_id {
+        let authorized_id : Option<AccountId> = if sender_id != previous_owner_id {
             Some(sender_id)
         } else {
             None
@@ -993,7 +758,7 @@ impl Contract {
         let receiver_id_str = receiver_id.to_string();
         self.tokens.nft_transfer(receiver_id, token_id.clone(), approval_id, memo.clone());
 
-        let authorized_id: Option<AccountId> = if sender_id != previous_owner_id {
+        let authorized_id : Option<AccountId> = if sender_id != previous_owner_id {
             Some(sender_id)
         } else {
             None
@@ -1027,7 +792,7 @@ impl Contract {
             memo.clone(),
         );
 
-        let authorized_id: Option<AccountId> = if sender_id != previous_owner_id {
+        let authorized_id : Option<AccountId> = if sender_id != previous_owner_id {
             Some(sender_id.clone())
         } else {
             None
@@ -1132,8 +897,8 @@ impl Contract {
         &self,
         token_id: TokenId,
         balance: U128,
-        max_len_payout: u32,
-    ) -> Payout {
+        max_len_payout: u32
+    ) -> Payout{
         let owner_id = self.tokens.owner_by_id.get(&token_id).expect("No token id");
         let mut token_id_iter = token_id.split(TOKEN_DELIMETER);
         let token_series_id = token_id_iter.next().unwrap().parse().unwrap();
@@ -1164,7 +929,7 @@ impl Contract {
         token_id: TokenId,
         approval_id: Option<u64>,
         balance: Option<U128>,
-        max_len_payout: Option<u32>,
+        max_len_payout: Option<u32>
     ) -> Option<Payout> {
         assert_one_yocto();
 
@@ -1204,7 +969,7 @@ impl Contract {
             None
         };
 
-        let authorized_id: Option<AccountId> = if sender_id != previous_owner_id {
+        let authorized_id : Option<AccountId> = if sender_id != previous_owner_id {
             Some(sender_id)
         } else {
             None
@@ -1291,22 +1056,12 @@ fn refund_deposit(storage_used: u64, extra_spend: Balance) {
     }
 }
 
-fn get_random_number(shift_amount: u32) -> u32 {
-    let mut seed = env::random_seed();
-    let seed_len = seed.len();
-    let mut arr: [u8; 4] = Default::default();
-    seed.rotate_left(shift_amount as usize % seed_len);
-    arr.copy_from_slice(&seed[..4]);
-    u32::from_le_bytes(arr)
-}
-
 #[cfg(all(test, not(target_arch = "wasm32")))]
 mod tests {
     use super::*;
     use near_sdk::test_utils::{accounts, VMContextBuilder};
     use near_sdk::MockedBlockchain;
     use near_sdk::{testing_env};
-    use serde_with::with_prefix;
 
     const STORAGE_FOR_CREATE_SERIES: Balance = 8540000000000000000000;
     const STORAGE_FOR_MINT: Balance = 11280000000000000000000;
@@ -1342,7 +1097,7 @@ mod tests {
                 base_uri: Some("https://ipfs.fleek.co/ipfs/".to_string()),
                 reference: None,
                 reference_hash: None,
-            },
+            }
         );
         testing_env!(context.is_view(true).build());
         assert_eq!(contract.get_owner(), accounts(1).to_string());
@@ -1396,7 +1151,7 @@ mod tests {
             &mut contract,
             &royalty,
             Some(U128::from(1 * 10u128.pow(24))),
-            None,
+            None
         );
 
         let nft_series_return = contract.nft_get_series_single("1".to_string());
@@ -1428,6 +1183,7 @@ mod tests {
             nft_series_return.metadata.reference.unwrap(),
             "bafybeicg4ss7qh5odijfn2eogizuxkrdh3zlv4eftcmgnljwu7dm64uwji".to_string()
         );
+
     }
 
     #[test]
@@ -1446,7 +1202,7 @@ mod tests {
             &mut contract,
             &royalty,
             Some(U128::from(1 * 10u128.pow(24))),
-            None,
+            None
         );
 
         testing_env!(context
@@ -1615,7 +1371,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "Paras: not for sale")]
+    #[should_panic( expected = "Paras: not for sale" )]
     fn test_invalid_buy_price_null() {
         let (mut context, mut contract) = setup_contract();
         testing_env!(context
@@ -1789,19 +1545,19 @@ mod tests {
         let payout = contract.nft_transfer_payout(
             accounts(3),
             token_id.clone(),
-            Some(0),
+            Some(0) ,
             Some(U128::from(1 * 10u128.pow(24))),
-            Some(10),
+            Some(10)
         );
 
         let mut payout_calc: HashMap<AccountId, U128> = HashMap::new();
         payout_calc.insert(
             accounts(1).to_string(),
-            U128::from((1000 * (1 * 10u128.pow(24))) / 10_000),
+            U128::from((1000 * (1 * 10u128.pow(24)))/10_000)
         );
         payout_calc.insert(
             accounts(2).to_string(),
-            U128::from((9000 * (1 * 10u128.pow(24))) / 10_000),
+            U128::from((9000 * (1 * 10u128.pow(24))) / 10_000)
         );
 
         assert_eq!(payout.unwrap().payout, payout_calc);
@@ -1811,163 +1567,5 @@ mod tests {
             token.owner_id,
             accounts(3).to_string()
         )
-    }
-
-    #[test]
-    fn test_create_mint_bundle() {
-        let (mut context, mut contract) = setup_contract();
-        testing_env!(context
-            .predecessor_account_id(accounts(1))
-            .attached_deposit(STORAGE_FOR_CREATE_SERIES)
-            .build()
-        );
-
-        contract.create_mint_bundle(
-            "test-bundle-test".to_string(),
-            Some(vec!["1".to_string(), "2".to_string()]),
-            None,
-            Some(U128::from(5 * 10u128.pow(24))),
-            None
-        );
-
-        let mint_bundle = contract.get_mint_bundle("test-bundle-test".to_string());
-
-        assert_eq!(mint_bundle.token_series_ids, Some(vec!["1".to_string(), "2".to_string()]));
-        assert_eq!(mint_bundle.token_ids, None);
-        assert_eq!(mint_bundle.price.unwrap(), U128::from(5 * 10u128.pow(24)));
-        assert_eq!(mint_bundle.limit_buy, None);
-    }
-
-    #[test]
-    fn test_buy_mint_bundle() {
-        let (mut context, mut contract) = setup_contract();
-        testing_env!(context
-            .predecessor_account_id(accounts(1))
-            .attached_deposit(STORAGE_FOR_CREATE_SERIES)
-            .build()
-        );
-
-        let mut royalty: HashMap<AccountId, u32> = HashMap::new();
-        royalty.insert(accounts(1).to_string(), 1000);
-
-        create_series(&mut contract, &royalty, None, Some(2));
-        create_series(&mut contract, &royalty, None, Some(2));
-        create_series(&mut contract, &royalty, None, Some(2));
-        create_series(&mut contract, &royalty, None, Some(2));
-
-        testing_env!(context
-            .predecessor_account_id(accounts(1))
-            .attached_deposit(STORAGE_FOR_CREATE_SERIES)
-            .build()
-        );
-
-        let price = 5 * 10u128.pow(24);
-        let mint_bundle_id = "test-bundle-test".to_string();
-        contract.create_mint_bundle(
-            mint_bundle_id.clone(),
-            Some(vec!["1".to_string(), "2".to_string(), "3".to_string(), "4".to_string()]),
-            None,
-            Some(U128::from(price)),
-            None
-        );
-
-        testing_env!(context
-            .predecessor_account_id(accounts(2))
-            .attached_deposit(price + STORAGE_FOR_CREATE_SERIES)
-            .build()
-        );
-
-        contract.buy_mint_bundle(mint_bundle_id.clone(), accounts(2));
-        contract.buy_mint_bundle(mint_bundle_id.clone(), accounts(2));
-        contract.buy_mint_bundle(mint_bundle_id.clone(), accounts(2));
-        contract.buy_mint_bundle(mint_bundle_id.clone(), accounts(2));
-        contract.buy_mint_bundle(mint_bundle_id.clone(), accounts(2));
-        contract.buy_mint_bundle(mint_bundle_id.clone(), accounts(2));
-        contract.buy_mint_bundle(mint_bundle_id.clone(), accounts(2));
-        contract.buy_mint_bundle(mint_bundle_id, accounts(2));
-    }
-
-    #[test]
-    #[should_panic(expected = "Paras: Mint bundle does not exist or already finished")]
-    fn test_invalid_exhaust_mint_bundle() {
-        let (mut context, mut contract) = setup_contract();
-        testing_env!(context
-            .predecessor_account_id(accounts(1))
-            .attached_deposit(STORAGE_FOR_CREATE_SERIES)
-            .build()
-        );
-
-        let mut royalty: HashMap<AccountId, u32> = HashMap::new();
-        royalty.insert(accounts(1).to_string(), 1000);
-
-        create_series(&mut contract, &royalty, None, Some(2));
-
-        testing_env!(context
-            .predecessor_account_id(accounts(1))
-            .attached_deposit(STORAGE_FOR_CREATE_SERIES)
-            .build()
-        );
-
-        let price = 5 * 10u128.pow(24);
-        let mint_bundle_id = "test-bundle-test".to_string();
-        contract.create_mint_bundle(
-            mint_bundle_id.clone(),
-            Some(vec!["1".to_string()]),
-            None,
-            Some(U128::from(price)),
-            None
-        );
-
-        testing_env!(context
-            .predecessor_account_id(accounts(2))
-            .attached_deposit(price + STORAGE_FOR_CREATE_SERIES)
-            .build()
-        );
-
-        contract.buy_mint_bundle(mint_bundle_id.clone(), accounts(2));
-        contract.buy_mint_bundle(mint_bundle_id.clone(), accounts(2));
-        contract.buy_mint_bundle(mint_bundle_id, accounts(2));
-    }
-
-    #[test]
-    #[should_panic(expected = "Paras: Mint exhausted for account_id charlie")]
-    fn test_invalid_exhaust_limit_buy_mint_bundle() {
-        let (mut context, mut contract) = setup_contract();
-        testing_env!(context
-            .predecessor_account_id(accounts(1))
-            .attached_deposit(STORAGE_FOR_CREATE_SERIES)
-            .build()
-        );
-
-        let mut royalty: HashMap<AccountId, u32> = HashMap::new();
-        royalty.insert(accounts(1).to_string(), 1000);
-
-        create_series(&mut contract, &royalty, None, Some(2));
-
-        testing_env!(context
-            .predecessor_account_id(accounts(1))
-            .attached_deposit(STORAGE_FOR_CREATE_SERIES)
-            .build()
-        );
-
-        let price = 5 * 10u128.pow(24);
-        let mint_bundle_id = "test-bundle-test".to_string();
-        contract.create_mint_bundle(
-            mint_bundle_id.clone(),
-            Some(vec!["1".to_string()]),
-            None,
-            Some(U128::from(price)),
-            Some(1)
-        );
-
-        testing_env!(context
-            .predecessor_account_id(accounts(2))
-            .attached_deposit(price + STORAGE_FOR_CREATE_SERIES)
-            .build()
-        );
-
-        contract.buy_mint_bundle(mint_bundle_id.clone(), accounts(2));
-        contract.buy_mint_bundle(mint_bundle_id.clone(), accounts(2));
-        contract.buy_mint_bundle(mint_bundle_id, accounts(2));
     }
 }
