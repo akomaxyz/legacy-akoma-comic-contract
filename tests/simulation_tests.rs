@@ -1,4 +1,4 @@
-use paras_nft_contract::ContractContract as Contract;
+use paras_nft_contract::{ContractContract as Contract, TokenSeriesId};
 use near_sdk_sim::{
     deploy, init_simulator, to_yocto, ContractAccount, UserAccount, DEFAULT_GAS
 };
@@ -20,7 +20,7 @@ pub fn init() -> (UserAccount, ContractAccount<Contract>, UserAccount) {
 
     let treasury = root.create_user(
         "treasury".to_string(),
-        to_yocto("100"),
+        to_yocto("200"),
     );
 
     let nft_contract = deploy!(
@@ -33,6 +33,8 @@ pub fn init() -> (UserAccount, ContractAccount<Contract>, UserAccount) {
             treasury.valid_account_id()
         )
     );
+
+    treasury.transfer(NFT_CONTRACT_ID.to_string(), to_yocto("100"));
 
     root.create_user(
         "test".repeat(16),
@@ -260,4 +262,37 @@ fn simulate_buy() {
 
     assert_eq!(for_treasury, diff_after_sell_treasury);
     assert_eq!(for_seller, diff_after_sell_alice);
+}
+
+#[test]
+fn simulate_create_mint_bundle() {
+    let (root, nft, alice) = init();
+
+    let initial_storage_usage = nft.account().unwrap().storage_usage;
+
+    let mint_bundle_id = "mint-bundle-test";
+    let mut token_series_ids: Vec<TokenSeriesId> = vec![];
+
+    for i in 0..1100 {
+        token_series_ids.push(i.to_string());
+    }
+
+    let outcome = root.call(
+        nft.account_id(),
+        "create_mint_bundle",
+        &json!({
+            "mint_bundle_id": mint_bundle_id,
+            "token_series_ids": token_series_ids,
+            "price": to_yocto("1").to_string(),
+        }).to_string().into_bytes(),
+        DEFAULT_GAS,
+        to_yocto("1")
+    );
+
+    outcome.assert_success();
+
+    let storage_price_for_adding_series =
+        (nft.account().unwrap().storage_usage - initial_storage_usage) as u128 * 10u128.pow(19);
+    println!("[CREATE MINT BUNDLE] Storage price: {} yoctoNEAR", storage_price_for_adding_series);
+    println!("[CREATE MINT BUNDLE] Gas burnt price: {} TeraGas", outcome.gas_burnt() as f64 / 1e12);
 }
