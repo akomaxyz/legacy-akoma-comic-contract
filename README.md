@@ -79,3 +79,15 @@ env NEAR_ENV=local near call --keyPath ~/.near/localnet/validator_key.json --acc
 ```
 env NEAR_ENV=local near call --keyPath ~/.near/localnet/validator_key.json --accountId alice.test.near comic.test.near nft_approve '{"token_id":"1:10","account_id":"marketplace.test.near","msg":"{\"price\":\"3000000000000000000000000\",\"ft_token_id\":\"near\"}"}' --depositYocto 1320000000000000000000
 ```
+
+# Mint Bundle / Gacha
+
+### Create mint bundle
+```
+create_mint_bundle '{"mint_bundle_id":"gacha-test","token_series_ids":["1","2","3"],"price":"0","limit_buy":1}' --depositYocto 8540000000000000000000
+```
+
+### Buy mint bundle
+```
+buy_mint_bundle '{"mint_bundle_id":"gacha-test","receiver_id":"cymac.testnet"}' --depositYocto 7680000000000000000000
+```
