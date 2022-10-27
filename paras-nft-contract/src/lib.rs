@@ -11,7 +11,7 @@ use near_sdk::collections::{LazyOption, LookupMap, UnorderedMap, UnorderedSet, V
 use near_sdk::json_types::{ValidAccountId, U128, U64};
 use near_sdk::{
     assert_one_yocto, env, near_bindgen, serde_json::json, AccountId, Balance, BorshStorageKey,
-    PanicOnDefault, Promise, PromiseOrValue, Gas, ext_contract,
+    PanicOnDefault, Promise, PromiseOrValue, Gas, ext_contract
 };
 use near_sdk::serde::{Deserialize, Serialize};
 use std::collections::{HashMap};
@@ -236,11 +236,11 @@ impl Contract {
         token_metadata: TokenMetadata,
         price: Option<U128>,
         royalty: Option<HashMap<AccountId, u32>>,
-        creator_id: ValidAccountId,
     ) -> TokenSeriesJson {
         let initial_storage_usage = env::storage_usage();
+        let caller_id = env::predecessor_account_id();
 
-        assert_eq!(env::predecessor_account_id(), self.tokens.owner_id, "Paras: Only owner");
+        assert_eq!(caller_id, self.tokens.owner_id, "Paras: Only owner");
 
         let token_series_id = format!("{}", (self.token_series_by_id.len() + 1));
 
@@ -283,7 +283,7 @@ impl Contract {
 
         self.token_series_by_id.insert(&token_series_id, &TokenSeries {
             metadata: token_metadata.clone(),
-            creator_id: creator_id.to_string(),
+            creator_id: caller_id.clone().to_string(),
             tokens: UnorderedSet::new(
                 StorageKey::TokensBySeriesInner {
                     token_series: token_series_id.clone(),
@@ -302,7 +302,7 @@ impl Contract {
                 "params": {
                     "token_series_id": token_series_id,
                     "token_metadata": token_metadata,
-                    "creator_id": creator_id,
+                    "creator_id": caller_id,
                     "price": price,
                     "royalty": royalty_res
                 }
@@ -316,7 +316,7 @@ impl Contract {
         TokenSeriesJson {
             token_series_id,
             metadata: token_metadata,
-            creator_id: creator_id.into(),
+            creator_id: caller_id.into(),
             royalty: royalty_res,
         }
     }
@@ -1377,7 +1377,6 @@ mod tests {
             },
             price,
             Some(royalty.clone()),
-            accounts(1),
         );
     }
 

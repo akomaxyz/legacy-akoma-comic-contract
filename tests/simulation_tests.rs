@@ -20,7 +20,7 @@ pub fn init() -> (UserAccount, ContractAccount<Contract>, UserAccount) {
 
     let treasury = root.create_user(
         "treasury".to_string(),
-        to_yocto("200"),
+        to_yocto("400"),
     );
 
     let nft_contract = deploy!(
@@ -34,7 +34,7 @@ pub fn init() -> (UserAccount, ContractAccount<Contract>, UserAccount) {
         )
     );
 
-    treasury.transfer(NFT_CONTRACT_ID.to_string(), to_yocto("100"));
+    treasury.transfer(NFT_CONTRACT_ID.to_string(), to_yocto("200"));
 
     root.create_user(
         "test".repeat(16),
@@ -64,7 +64,6 @@ fn simulate_create_new_series() {
             "royalty": {
                 "0".repeat(64): 1000u32
             },
-            "creator_id": alice.account_id(),
         }).to_string().into_bytes(),
         DEFAULT_GAS,
         to_yocto("2")
@@ -94,7 +93,6 @@ fn simulate_mint() {
             "royalty": {
                 "0".repeat(64): 1000u32
             },
-            "creator_id": alice.account_id()
         }).to_string().into_bytes(),
         DEFAULT_GAS,
         to_yocto("1")
@@ -175,7 +173,6 @@ fn simulate_approve() {
             "royalty": {
                 "0".repeat(64): 1000u32
             },
-            "creator_id": alice.account_id(),
         }).to_string().into_bytes(),
         DEFAULT_GAS,
         to_yocto("1")
@@ -235,15 +232,14 @@ fn simulate_buy() {
             "royalty": {
                 "0".repeat(64): 1000u32
             },
-            "creator_id": alice.account_id(),
         }).to_string().into_bytes(),
         DEFAULT_GAS,
         to_yocto("1")
     ).assert_success();
 
-    let alice_balance = alice.account().unwrap().amount;
+    let root_balance = root.account().unwrap().amount;
 
-    root.call(
+    alice.call(
         nft.account_id(),
         "nft_buy",
         &json!({
@@ -258,10 +254,10 @@ fn simulate_buy() {
     let for_seller = to_yocto("1") - for_treasury;
 
     let diff_after_sell_treasury = treasury.account().unwrap().amount - treasury_balance;
-    let diff_after_sell_alice = alice.account().unwrap().amount - alice_balance;
+    let diff_after_sell_root = root.account().unwrap().amount - root_balance;
 
     assert_eq!(for_treasury, diff_after_sell_treasury);
-    assert_eq!(for_seller, diff_after_sell_alice);
+    assert_eq!(for_seller, diff_after_sell_root);
 }
 
 #[test]
